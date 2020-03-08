@@ -1,0 +1,14 @@
+numpy
+scipy
+Shapely
+pandas
+xlrd
+matplotlib
+basemap-data-hires
+seawater
+pyproj
+jupyter
+jupyterlab
+ffmpeg
+descartes
+tqdm

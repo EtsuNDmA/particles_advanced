@@ -127,3 +127,17 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# .docx temp files
+.~lock.*
+
+# IDE
+.idea
+
+# system
+.DS_Store
+
+# temporal data files
+data.csv
+out.csv
+out.mp4
