@@ -2,6 +2,7 @@ from math import floor
 import logging
 
 import numpy as np
+import seawater
 from scipy.interpolate.interpnd import LinearNDInterpolator
 
 logger = logging.getLogger(__name__)

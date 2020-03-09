@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from pyproj import Proj
 
 from particles.continent import Continent
@@ -12,7 +13,7 @@ from particles.state import Particle, get_current_data, get_particles, init_stat
 from particles.xlsx_to_csv import xlsx_to_csv
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
@@ -58,6 +59,7 @@ def main(options):
 
     min_lat, max_lat = current_df['lat'].min(), current_df['lat'].max()
     min_lon, max_lon = current_df['lon'].min(), current_df['lon'].max()
+    max_depth = current_df['depth'].max()
 
     current_df['x'] = (current_df['lat'] - min_lat) * SCALE
     current_df['y'] = (current_df['lon'] - min_lon) * SCALE
@@ -73,13 +75,28 @@ def main(options):
     particles = [Particle(p.density, p.diameter,
                           init_state(bounds, random_state),
                           bbox=bounds,
+                          max_depth=max_depth,
                           continent=continent,
                           step=options.step)
                  for p in particles_df.itertuples()]
     logger.info(f'Создали {len(particles)} частиц')
 
-    logger.info('Запускаем моделирование')
-    states = []
+    if not options.only_animation:
+        logger.info('Запускаем моделирование')
+        run_model(options, particles, current_df)
+
+    states = pd.read_csv(options.out_csv)
+    logger.info('Сохраняем анимацию')
+    save_animation(file_name=options.out_mp4,
+                   bbox=bounds,
+                   continent=continent.continent,
+                   current_df=current_df,
+                   states=states[['x', 'y', 'z', 'u', 'v', 'w']],
+                   num_iter=options.num_iter,
+                   step=options.step)
+
+
+def run_model(options, particles, current_df):
     with CSV(options.out_csv) as csv_file:
         for iteration in range(options.num_iter):
             logger.info(f'Итерация {iteration}')
@@ -88,23 +105,16 @@ def main(options):
                     continue
                 environment_func = get_environment_func(iteration * options.step, current_df)
                 particle.next_state(environment_func)
-                csv_file.write(particle)
-                states.append([iteration, particle.id] + list(particle.state))
-
-    logger.debug('Сохраняем анимацию')
-    save_animation(file_name=options.out_mp4,
-                   bbox=bounds,
-                   continent=continent.continent,
-                   current_df=current_df,
-                   states=states,
-                   num_iter=options.num_iter,
-                   step=options.step)
+                csv_file.write(iteration, particle)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create animation of particles')
-    parser.add_argument('-f', '--force_transform', action='store_true',
+    parser.add_argument('-f', '--force-transform', action='store_true',
                         help='Принудительно конвертирует xls в csv')
+    parser.add_argument('-a', '--only-animation', action='store_true',
+                        help='Сделать анимацию по данным из out-csv, '
+                             'удобно для тестирования настроек анимации без пересчета всей модели')
     parser.add_argument('-n', '--num-iter', type=int, default=NUM_ITER, help='Число итераций')
     parser.add_argument('-s', '--step', type=int, default=STEP, help='Шаг итерации, сек')
     parser.add_argument('-b', '--continent_buffer', type=int, default=CONTINENT_BUFFER,
